@@ -8,6 +8,10 @@ import cors from "cors"
 import helmet from "helmet"
 //db
 import dbConnection from "./dbConfig/index.js"
+//middlewares
+import errorMiddleware from "./middleware/errorMiddleware.js"
+//route
+import Routes from "./router/index.js"
 
 dotenv.config();
 dbConnection();
@@ -24,6 +28,12 @@ app.use(express.json({limit:"10mb"}))
 app.use(express.urlencoded({extended:true}))
 
 app.use(morgan("dev"))
+
+//routes
+app.use(Routes);
+
+//error middleware
+app.use(errorMiddleware)
 
 app.listen(PORT,()=>{
     console.log(`Server running on port ${PORT}`)

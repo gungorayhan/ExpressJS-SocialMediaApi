@@ -6,3 +6,7 @@ type -> module<br/>
 index.js ->add settings <br/>
 dbConnect<br/>
 model<br/>
+
+controller <br/>
+utils -> bcrypt, jsonwebtoken<br/>
+sendEmailVerification-> nodemailer.createTransport({});<br/>
