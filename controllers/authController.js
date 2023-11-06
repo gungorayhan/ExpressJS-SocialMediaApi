@@ -68,12 +68,11 @@ export const login = async (req,res,next)=>{
 
         user.password=undefined;
         const token = createJWT(user?._id)
-
         res.status(201).json({
             succcess:true,
             message:"login successfuly",
             user,
-            token
+            token,
         })
 
         

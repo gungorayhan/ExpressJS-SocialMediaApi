@@ -8,5 +8,12 @@ dbConnect<br/>
 model<br/>
 
 controller <br/>
+registerController <br/>
 utils -> bcrypt, jsonwebtoken<br/>
+loginController <br/>
 sendEmailVerification-> nodemailer.createTransport({});<br/>
+verifyController <br/> 
+verified and views<br>
+
+password reset<br/>
+verifiedpassword

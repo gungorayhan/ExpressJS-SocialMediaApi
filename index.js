@@ -12,11 +12,17 @@ import dbConnection from "./dbConfig/index.js"
 import errorMiddleware from "./middleware/errorMiddleware.js"
 //route
 import Routes from "./router/index.js"
+//path
+import path from "path"
+
+const __dirname=path.resolve(path.dirname(""))
 
 dotenv.config();
 dbConnection();
 
 const app = express();
+
+app.use(express.static(path.join(__dirname, "views/build")))
 
 const PORT = process.env.PORT;
 
