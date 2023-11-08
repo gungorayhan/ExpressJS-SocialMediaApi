@@ -79,7 +79,6 @@ export const sendVerificationEmail = async (user, res) => {
 
 export const resetPasswordLink = async (user, res) => {
     const { _id, email } = user
-
     const token = _id + uuidv4();
 
     const link = APP_URL + "users/reset-password/" + _id + "/" + token;
@@ -102,7 +101,7 @@ export const resetPasswordLink = async (user, res) => {
         const hashedToken = await hashString(token)
 
         const resetEmail = await PasswordReset.create({
-            userId:id,
+            userId:_id,
             email:email,
             token:hashedToken,
             createdAt:Date.now(),

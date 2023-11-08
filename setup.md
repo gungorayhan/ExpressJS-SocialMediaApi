@@ -16,4 +16,8 @@ verifyController <br/>
 verified and views<br>
 
 password reset<br/>
-verifiedpassword
+verifiedpassword<br/>
+
+user process<br/>
+
+posts process<br/>

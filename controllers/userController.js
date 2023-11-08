@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
 import Verification from "../model/emailVerification.js";
 import Users from "../model/userModel.js";
-import { compareString, hashString } from "../utils/index.js";
+import { compareString, createJWT, hashString } from "../utils/index.js";
 import PasswordReset from "../model/passwordResetModel.js";
 import { resetPasswordLink } from "../utils/sendEmail.js";
+import FriendRequest from "../model/friendRequestModel.js";
 
 
 export const verifyEmail = async (req, res) => {
@@ -116,7 +117,7 @@ export const requestPasswordReset = async (req, res) => {
 }
 
 export const resetPassword = async (req, res) => {
-    const { userId, token } = req.params;
+    const { userId, token: resetToken } = req.params;
 
     try {
         const user = await Users.findById(userId);
@@ -163,18 +164,269 @@ export const changePassword = async () => {
             { userId },
             { password: hashedpassword }
         )
-        
-        if(user){
-            await PasswordReset.findByIdAndDelete({userId})
+
+        if (user) {
+            await PasswordReset.findByIdAndDelete({ userId })
 
             res.status(200).json({
-                ok:true
+                ok: true
             })
         }
 
 
     } catch (error) {
         console.log(error)
+        res.status(404).json({ message: error.message })
+    }
+}
+
+
+export const getUser = async (req, res) => {
+    const { userId } = req.body.user;
+    const { id } = req.params;
+    try {
+
+        const user = await Users.findById(id ?? userId).populate({
+            path: "friends",
+            select: "-password",
+        })
+
+        if (!user) {
+            return res.status(404).send({
+                message: "User not found",
+                success: false,
+            })
+        }
+
+        user.password = undefined;
+        return res.status(200).json({
+            success: true,
+            user: user
+        })
+
+
+
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({
+            message: "auth error",
+            success: "false",
+            error: error.message
+        })
+    }
+}
+
+export const updateUser = async (req, res) => {
+    const { firstName, lastName, location, profileUrl, profession } = req.body
+
+    try {
+        if (!(firstName || lastName || location || profileUrl || profession)) {
+            next("Please provide all required fields")
+            return;
+        }
+
+        const { userId } = req.body.user;
+        const updateUser = {
+            firstName,
+            lastName,
+            location,
+            profileUrl,
+            profession,
+            _id: userId
+        }
+
+        const user = await Users.findByIdAndUpdate(
+            userId,
+            updateUser,
+            { new: true }
+        )
+
+       await user.populate({ path: "friends", select: "-password" })
+        const token = createJWT(user?._id)
+        user.password = undefined;
+        res.status(200).json({
+            success: true,
+            message: "User update successfully",
+            user,
+            token
+        })
+    } catch (error) {
+        console.log(error)
+        res.status(404).json({
+            status: error,
+            message: error.message
+        })
+    }
+}
+
+
+export const friendRequest = async (req, res, next) => {
+
+    const { userId } = req.body.user;
+    const { requestTo } = req.body;
+    try {
+        const requestExist = await FriendRequest.findOne({
+            requestFrom: userId,
+            requestTo,
+        })
+
+        if (requestExist) {
+            next("Friend Request already sent")
+            return;
+        }
+
+        const accountExist = await FriendRequest.findOne({
+            requestTo,
+            requestFrom: userId
+        });
+
+        if (accountExist) {
+            next("friend request already sent")
+            return
+        }
+
+        const newRes = await FriendRequest.create({
+            requestTo,
+            requestFrom: userId
+        })
+
+        res.status(201).json({
+            success: true,
+            message: "Friend request sent successfully"
+        })
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            message: "auth error",
+            success: false,
+            error: error.message,
+        });
+
+    }
+}
+
+export const getFriendRequest = async (req, res) => {
+    const { userId } = req.body.user
+    try {
+        const request = await FriendRequest.find({
+            requestTo: userId,
+            requestStatus: "Pending"
+        })
+            .populate({
+                parh: "requestFrom",
+                select: "firstname lastname profileUrl profession -password"
+            })
+            .limit(10)
+            .sort({
+                _id: -1
+            })
+
+        res.status(200).json({
+            success: true,
+            data: request,
+        })
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            message: "auth error",
+            success: false,
+            error: error.message,
+        });
+    }
+}
+
+export const acceptRequest = async (req, res) => {
+    const id = req.body.user.userId;
+
+    const { rid, status } = req.body;
+
+    try {
+        const requestExist =  await FriendRequest.findById(rid);
+
+        if(!requestExist){
+            next("No friend request found")
+            return;
+        }
+
+        const newRes = await FriendRequest.findByIdAndUpdate(
+            {_id:rid},
+            {requestStatus:status},
+            // {new:true}
+        )
+
+        if(status === "Accepted"){
+            const user = await Users.findById(id);
+            user.friends.push(newRes?.requestFrom);
+            await user.save();
+
+            const friend = await Users.findById(newRes?.requestFrom);
+            friend.friends.push(newRes?.requestTo);
+            await friend.save();
+        }
+
+        res.status(201).json({
+            success:true,
+            message:"Friend Request" + status,
+        })
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            message: "auth error",
+            success: false,
+            error: error.message,
+        });
+    }
+}
+
+export const profileViews =async (req,res)=>{
+    const {userId} = req.body.user;
+    const {id} = req.body;
+
+    try {
+        const user = await Users.findById(id);
+        user.views.push(userId);
+
+        await user.save();
+        
+        res.status(201).json({
+            success:true,
+            message:"Successfully"
+        })
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({
+            message:"auth error",
+            success:false,
+            error:error.message
+        })
+    }
+
+}
+
+
+export const suggestedFriends = async (req,res)=>{
+    const {userId} = req.body.user
+
+    try {
+        let queryObject = {}
+        queryObject._id={$ne : userId}
+        queryObject.friends = {$nin : userId}
+
+        let queryResult  =  Users.find(queryObject)
+        .limit(15)
+        .select("firstName lastName profileUrl profession -password");
+
+        const suggestedFriends = await queryResult;
+
+        res.status(200).json({
+            success:true,
+            data:suggestedFriends,
+        })
+    } catch (error) {
+        console.log(error)
         res.status(404).json({message:error.message})
     }
+
 }
